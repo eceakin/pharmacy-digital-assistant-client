@@ -1,0 +1,521 @@
+# React Frontend Development Prompt for Pharmacy Digital Assistant
+
+You are an expert React developer tasked with building a comprehensive frontend for the Pharmacy Digital Assistant application. The backend is built with Java Spring Boot and provides REST APIs for patient management, inventory tracking, prescription management, and notifications.
+
+## Project Setup Instructions
+
+### Step 1: Create React Project
+```bash
+# Navigate to your project root directory (where backend src/ folder exists)
+cd pharmacy-digital-assistant
+
+# Create React app in a new frontend folder
+npx create-react-app frontend
+cd frontend
+```
+
+### Step 2: Install Required Dependencies
+```bash
+# Core dependencies
+npm install axios react-router-dom
+
+# UI Framework - Material-UI
+npm install @mui/material @mui/icons-material @emotion/react @emotion/styled
+
+# Date handling
+npm install date-fns
+
+# Charts for reports
+npm install recharts
+
+# Form handling
+npm install react-hook-form
+
+# State management (optional but recommended)
+npm install zustand
+
+# Icons
+npm install lucide-react
+```
+
+### Step 3: Project Structure
+Create the following folder structure inside `src/`:
+
+```
+src/
+├── api/
+│   ├── axiosConfig.js
+│   ├── patientApi.js
+│   ├── medicationApi.js
+│   ├── inventoryApi.js
+│   ├── prescriptionApi.js
+│   ├── notificationApi.js
+│   └── reportApi.js
+├── components/
+│   ├── common/
+│   │   ├── Sidebar.jsx
+│   │   ├── Header.jsx
+│   │   ├── StatsCard.jsx
+│   │   ├── AlertBox.jsx
+│   │   └── LoadingSpinner.jsx
+│   ├── patients/
+│   │   ├── PatientList.jsx
+│   │   ├── PatientForm.jsx
+│   │   └── PatientDetail.jsx
+│   ├── inventory/
+│   │   ├── InventoryList.jsx
+│   │   ├── StockForm.jsx
+│   │   └── StockStatusBadge.jsx
+│   ├── prescriptions/
+│   │   ├── PrescriptionList.jsx
+│   │   └── PrescriptionForm.jsx
+│   ├── notifications/
+│   │   ├── NotificationList.jsx
+│   │   └── NotificationStats.jsx
+│   └── reports/
+│       ├── TopPatientsChart.jsx
+│       ├── LowStockReport.jsx
+│       └── ExpiringMedicationsReport.jsx
+├── pages/
+│   ├── Dashboard.jsx
+│   ├── Patients.jsx
+│   ├── Inventory.jsx
+│   ├── Prescriptions.jsx
+│   ├── Notifications.jsx
+│   ├── Reports.jsx
+│   └── Settings.jsx
+├── hooks/
+│   ├── usePatients.js
+│   ├── useInventory.js
+│   └── useNotifications.js
+├── utils/
+│   ├── formatters.js
+│   └── constants.js
+├── App.jsx
+└── index.jsx
+```
+
+## Detailed Page Requirements
+
+### 1. Dashboard Page (`pages/Dashboard.jsx`)
+
+**Layout:**
+- Dark purple sidebar on the left with white icons and menu items
+- Top section with 4 summary cards in a row
+- Alert section below with orange/pink background for urgent warnings
+
+**Components to create:**
+
+#### Stats Cards (Top Section)
+Create 4 cards displaying:
+1. **Total Patients** - Number: 127 (use GET `/api/patients/count`)
+2. **Active Prescriptions** - Number: 89 with green icon (use GET `/api/prescriptions/count/status/ACTIVE`)
+3. **Low Stock** - Number: 5 with orange warning icon (use GET `/api/stocks/alerts/low`)
+4. **Sent Notifications** - Number: 234 with purple bell icon (use GET `/api/notifications/count`)
+
+#### Alert Section
+- Fetch urgent alerts from multiple endpoints:
+  - Low stock items: GET `/api/stocks/alerts/low`
+  - Expiring stocks: GET `/api/stocks/alerts/expiring?days=30`
+- Display each alert with:
+  - Product name (e.g., "Coraspin 100mg")
+  - Alert type ("Düşük Stok" or "SKT Yaklaşıyor")
+  - Details (current: 8, minimum: 15 OR expiry date: 10.01.2026)
+  - Orange/pink background color
+  - Appropriate icon
+
+**API Endpoints:**
+```javascript
+// Dashboard summary
+GET /api/patients/count
+GET /api/prescriptions/count/status/ACTIVE
+GET /api/stocks/alerts/low
+GET /api/notifications/count
+
+// Alerts
+GET /api/stocks/alerts/expiring?days=30
+```
+
+### 2. Patient Management Page (`pages/Patients.jsx`)
+
+**Layout:**
+- Page header with "Hasta Yönetimi" title
+- "+ Yeni Hasta Ekle" button (opens modal/form)
+- Search bar with "Hasta ara" placeholder and "Filtrele" button
+- Large data table occupying most of the screen
+
+**Table Columns:**
+1. Hasta Adı (Patient Name) - from `firstName` + `lastName`
+2. TC Kimlik No (ID Number) - not in current model, can be added or use patient ID
+3. Telefon Numarası (Phone Number) - from `phoneNumber`
+4. Kronik Hastalık (Chronic Disease) - fetch active medications and display conditions
+5. Son Ziyaret Tarihi (Last Visit) - from `updatedAt`
+6. İşlemler (Actions) - "Detay" button linking to patient details
+
+**Features:**
+- Search functionality (use GET `/api/patients/search?q={term}`)
+- Filter by status (use GET `/api/patients/active`)
+- Click "Detay" to navigate to patient detail page
+- Modal for adding new patient with form fields:
+  - firstName, lastName, phoneNumber, email, address, smsConsentGiven, notes
+
+**API Endpoints:**
+```javascript
+GET /api/patients
+GET /api/patients/search?q={searchTerm}
+GET /api/patients/active
+GET /api/patients/{id}
+POST /api/patients
+PUT /api/patients/{id}
+DELETE /api/patients/{id}
+```
+
+**Patient Form Fields (from CreatePatientRequest):**
+- firstName* (required)
+- lastName* (required)
+- phoneNumber* (required, pattern validation)
+- email (email validation)
+- address
+- smsConsentGiven (checkbox)
+- notes (textarea)
+
+### 3. Inventory Management Page (`pages/Inventory.jsx`)
+
+**Layout:**
+- Summary status bar with 3 boxes:
+  - Toplam Stok Kalemi: 156 (GET `/api/stocks/count`)
+  - Düşük Stoklu: 5 (orange) (GET `/api/stocks/alerts/low`)
+  - SKT Yaklaşan: 3 (red) (GET `/api/stocks/alerts/expiring?days=90`)
+- Large inventory table
+
+**Table Columns:**
+1. İlaç Adı (Product Name) - from `productName`
+2. Barkod (Barcode) - from product data
+3. Parti No (Batch Number) - from `batchNumber`
+4. Miktar (Quantity) - from `quantity`
+5. SKT (Expiry Date) - from `expiryDate`, formatted
+6. Durum (Status) - colored badge:
+   - "Normal" (Green) - AVAILABLE status
+   - "Düşük" (Orange) - LOW_STOCK status
+   - "SKT Yakın" (Red) - NEAR_EXPIRY status
+7. İşlemler (Actions) - "Düzenle" button
+
+**Status Color Coding:**
+- Green: Normal stock, not expiring soon
+- Orange: Below minimum stock level
+- Red: Expiry date approaching (within 90 days)
+
+**Features:**
+- Color-coded status badges for quick visual scanning
+- Edit button opens modal to update stock quantities
+- Filter by status (AVAILABLE, LOW_STOCK, NEAR_EXPIRY)
+
+**API Endpoints:**
+```javascript
+GET /api/stocks
+GET /api/stocks/summary
+GET /api/stocks/alerts/low
+GET /api/stocks/alerts/expiring?days=90
+GET /api/stocks/{id}
+PUT /api/stocks/{id}
+POST /api/stocks
+```
+
+**Stock Form Fields:**
+- productId* (dropdown of products)
+- batchNumber*
+- expiryDate* (date picker)
+- quantity*
+- minimumStockLevel
+- storageLocation
+- notes
+
+### 4. Notifications Page (`pages/Notifications.jsx`)
+
+**Layout:**
+- Statistics section at top:
+  - Toplam: 234 sent notifications
+  - Başarılı: 228 (Green)
+  - Başarısız: 6 (Red)
+- Notification table below
+
+**Table Columns:**
+1. Hasta Adı (Patient Name) - from `patientName`
+2. Bildirim Tipi (Notification Type) - from `type` enum
+   - İlaç Hatırlatması (MEDICATION_REMINDER)
+   - Reçete Yenileme (PRESCRIPTION_RENEWAL)
+   - İlaç Bitim Hatırlatması (MEDICATION_EXPIRY)
+3. Kanal (Channel) - SMS or EMAIL
+4. Tarih (Date) - from `sentAt` or `createdAt`
+5. Durum (Status) - colored badge:
+   - "Başarılı" (Green) - SENT/DELIVERED
+   - "Başarısız" (Red) - FAILED
+
+**Features:**
+- Filter by status (SENT, FAILED, PENDING)
+- Filter by type
+- Retry failed notifications button
+- View notification details
+
+**API Endpoints:**
+```javascript
+GET /api/notifications
+GET /api/notifications/summary
+GET /api/notifications/status/{status}
+GET /api/notifications/patient/{patientId}
+PATCH /api/notifications/{id}/retry
+```
+
+### 5. Reports & Analytics Page (`pages/Reports.jsx`)
+
+**Layout:** Three vertical sections stacked:
+
+#### Section 1: En Çok Bildirim Alan Hastalar
+- Ranked list of patients by notification count
+- Shows: Rank, Patient Name, Notification Count
+- Example: "1. Ahmet Yılmaz - 12 bildirim"
+- API: Create custom aggregation or count notifications per patient
+
+#### Section 2: Düşük Stoklu İlaçlar
+- List of products below minimum stock level
+- Shows: Product Name, Current Stock (orange badge)
+- Example: "Coraspin - 8 adet"
+- API: GET `/api/stocks/alerts/low`
+
+#### Section 3: Miadı (SKT) Yaklaşan İlaçlar
+- List of products with approaching expiry dates
+- Shows: Product Name, Expiry Date (red background box)
+- Dates formatted like "2026-03-10"
+- API: GET `/api/stocks/alerts/expiring?days=90`
+
+**Visualization:**
+- Use simple lists with colored badges/boxes
+- Optional: Add bar charts using recharts library for visual appeal
+
+### 6. Settings Page (`pages/Settings.jsx`)
+
+**Layout:** Two-column form layout
+
+#### Left Column: Bildirim Ayarları (Notification Settings)
+- **İlaç Bitim Uyarısı**: Number input (days before medication runs out)
+  - Default: 3 days
+- **Reçete Bitiş Uyarısı**: Number input (days before prescription expires)
+  - Default: 7 days
+- **Bildirim Saati**: Time picker
+  - Default: 09:00
+- **SMS Bildirimi**: Toggle switch (on/off)
+- **E-posta Bildirimi**: Toggle switch (on/off)
+
+#### Right Column: Stok Ayarları (Stock Settings)
+- **SKT Uyarısı 1. Seviye**: Number input (months before expiry for first warning)
+  - Default: 3 months
+- **SKT Uyarısı 2. Seviye**: Number input (months before expiry for urgent warning)
+  - Default: 6 months
+
+**Save Button:** Blue button at bottom to save all settings
+
+**Note:** Settings might need a backend endpoint to persist. If not available, store in localStorage for now.
+
+## Common Components to Build
+
+### Sidebar Component (`components/common/Sidebar.jsx`)
+- Dark purple background (#5B21B6 or similar)
+- White text and icons
+- Menu items:
+  - Dashboard (home icon)
+  - Hastalar (users icon)
+  - Envanter (box icon)
+  - Reçeteler (file icon)
+  - Bildirimler (bell icon)
+  - Raporlar (chart icon)
+  - Ayarlar (settings icon)
+- Use React Router for navigation
+- Highlight active menu item
+
+### StatsCard Component (`components/common/StatsCard.jsx`)
+Props: title, value, icon, color
+- Displays large number
+- Icon at top or side
+- Colored accent based on type
+- Shadow and border radius for card effect
+
+### AlertBox Component (`components/common/AlertBox.jsx`)
+Props: title, description, type, icon
+- Orange/pink background for urgent alerts
+- Red/yellow for different severity levels
+- Icon on left side
+- Text content on right
+
+### StatusBadge Component
+Props: status, text
+- Color-coded pills/badges
+- Green for success/normal
+- Orange for warning
+- Red for critical/failed
+
+## API Configuration (`api/axiosConfig.js`)
+
+```javascript
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: 'http://localhost:8080/api',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Response interceptor for error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.error('API Error:', error);
+    return Promise.reject(error);
+  }
+);
+
+export default api;
+```
+
+## Styling Guidelines
+
+### Color Palette (from presentation screenshots)
+- **Primary Purple**: #5B21B6 (sidebar, primary buttons)
+- **Light Purple**: #667eea to #764ba2 (gradients)
+- **Success Green**: #10B981 (success states, active items)
+- **Warning Orange**: #F59E0B (low stock warnings)
+- **Danger Red**: #EF4444 (critical alerts, failed states)
+- **Background**: #F9FAFB (light gray for main content area)
+- **Card Background**: #FFFFFF
+
+### Typography
+- Use Material-UI default Roboto font
+- Headers: Bold, 24-32px
+- Body: Regular, 14-16px
+- Small text: 12-14px
+
+### Component Styling
+- Border radius: 8-12px for cards
+- Box shadows: Use Material-UI elevation levels
+- Padding: 16-24px for cards
+- Margins: 16-24px between sections
+
+## Routing Setup (`App.jsx`)
+
+```javascript
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import Dashboard from './pages/Dashboard';
+import Patients from './pages/Patients';
+import Inventory from './pages/Inventory';
+import Prescriptions from './pages/Prescriptions';
+import Notifications from './pages/Notifications';
+import Reports from './pages/Reports';
+import Settings from './pages/Settings';
+import Sidebar from './components/common/Sidebar';
+
+function App() {
+  return (
+    <BrowserRouter>
+      <div style={{ display: 'flex' }}>
+        <Sidebar />
+        <main style={{ flexGrow: 1, padding: '24px' }}>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/patients" element={<Patients />} />
+            <Route path="/inventory" element={<Inventory />} />
+            <Route path="/prescriptions" element={<Prescriptions />} />
+            <Route path="/notifications" element={<Notifications />} />
+            <Route path="/reports" element={<Reports />} />
+            <Route path="/settings" element={<Settings />} />
+          </Routes>
+        </main>
+      </div>
+    </BrowserRouter>
+  );
+}
+
+export default App;
+```
+
+## Data Formatting Utilities (`utils/formatters.js`)
+
+```javascript
+import { format } from 'date-fns';
+import { tr } from 'date-fns/locale';
+
+export const formatDate = (date) => {
+  if (!date) return '-';
+  return format(new Date(date), 'dd.MM.yyyy', { locale: tr });
+};
+
+export const formatDateTime = (date) => {
+  if (!date) return '-';
+  return format(new Date(date), 'dd.MM.yyyy HH:mm', { locale: tr });
+};
+
+export const formatPhoneNumber = (phone) => {
+  // Format Turkish phone numbers
+  if (!phone) return '-';
+  return phone.replace(/(\d{4})(\d{3})(\d{2})(\d{2})/, '$1 $2 $3 $4');
+};
+```
+
+## Development Workflow
+
+### Step 4: Start Development
+```bash
+# In frontend folder
+npm start
+# Frontend runs on http://localhost:3000
+
+# Make sure backend is running on http://localhost:8080
+```
+
+### Step 5: Build Order
+1. Start with common components (Sidebar, StatsCard, AlertBox)
+2. Build Dashboard page (uses common components)
+3. Build Patients page (full CRUD)
+4. Build Inventory page
+5. Build Notifications page
+6. Build Reports page
+7. Build Settings page
+
+### Step 6: Testing Checklist
+- [ ] All API endpoints connect successfully
+- [ ] CRUD operations work for patients
+- [ ] Stock status colors display correctly
+- [ ] Notifications show proper success/failure states
+- [ ] Search and filter functions work
+- [ ] Routing between pages works smoothly
+- [ ] Mobile responsive (optional but recommended)
+
+## Additional Features to Implement
+
+### Error Handling
+- Display toast notifications for API errors
+- Show loading spinners during API calls
+- Implement retry logic for failed requests
+
+### Form Validation
+- Use react-hook-form for form state management
+- Implement Turkish validation messages
+- Show inline error messages
+
+### Responsive Design
+- Make sidebar collapsible on mobile
+- Stack cards vertically on small screens
+- Use Material-UI Grid system
+
+### Performance Optimization
+- Implement pagination for large tables
+- Use React.memo for expensive components
+- Debounce search inputs
+
+## Turkish Language Support
+All UI text should be in Turkish:
+- Button labels: "Kaydet", "İptal", "Ekle", "Düzenle", "Sil"
+- Form labels match backend field names but displayed in Turkish
+- Error messages in Turkish
+- Date formatting using Turkish locale
+
+Now build this React application following these specifications. Start with the project setup, then implement each page systematically, ensuring all components are reusable and well-structured.
