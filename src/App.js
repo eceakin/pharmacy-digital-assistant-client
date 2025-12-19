@@ -2,9 +2,12 @@ import React, { useState } from 'react';
 import Sidebar from './components/common/Sidebar';
 import Dashboard from './pages/Dashboard';
 import Patients from './pages/Patients'; // 1. YENİ: Dosyayı içeri aktardık
+import Inventory from './pages/Inventory';
+import Notifications from './pages/Notifications';
 
 export default function App() {
   const [activePage, setActivePage] = useState('dashboard');
+
 
   return (
     <div style={{ 
@@ -20,12 +23,14 @@ export default function App() {
         {/* Sayfa Yönlendirmeleri */}
         {activePage === 'dashboard' && <Dashboard />}
         {activePage === 'patients' && <Patients />} {/* 2. YENİ: Hastalar sayfasını buraya ekledik */}
-        
+        {activePage === 'inventory' && <Inventory />}
+        {activePage === 'notifications' && <Notifications />}
+
         {/* Henüz yapılmayan sayfalar için yer tutucu */}
-        {activePage !== 'dashboard' && activePage !== 'patients' && (
+        {activePage !== 'dashboard' && activePage !== 'patients' 
+        && activePage !== 'inventory' && activePage !== 'notifications' &&(
           <div style={{ padding: '32px' }}>
             <h1 style={{ color: '#111827' }}>
-              {activePage === 'inventory' && 'Envanter Yönetimi'}
               {activePage === 'prescriptions' && 'Reçete Yönetimi'}
               {activePage === 'notifications' && 'Bildirimler'}
               {activePage === 'reports' && 'Raporlar'}
@@ -34,6 +39,7 @@ export default function App() {
             <p style={{ color: '#6B7280' }}>Bu sayfa henüz hazırlanmadı...</p>
           </div>
         )}
+
 
       </div>
     </div>

@@ -197,7 +197,7 @@ DELETE /api/patients/{id}
 6. Durum (Status) - colored badge:
    - "Normal" (Green) - AVAILABLE status
    - "Düşük" (Orange) - LOW_STOCK status
-   - "SKT Yakın" (Red) - NEAR_EXPIRY status
+   - "SKT YakIın" (Red) - NEAR_EXPIRY status
 7. İşlemler (Actions) - "Düzenle" button
 
 **Status Color Coding:**
