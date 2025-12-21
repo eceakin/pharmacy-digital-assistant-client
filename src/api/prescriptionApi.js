@@ -149,6 +149,24 @@ export const prescriptionApi = {
     }
   }
 };
+checkPrescriptionNotifications: async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/demo/check-prescriptions`);
+      const data = await response.json();
+      console.log('Prescription Check Result:', data);
+      return {
+        success: response.ok,
+        data: data.data,
+        message: data.message
+      };
+    } catch (error) {
+      console.error('Bildirim kontrolü başarısız:', error);
+      return {
+        success: false,
+        message: 'Bildirim kontrolü sırasında hata oluştu'
+      };
+    }
+  }
 
 // Helper function to calculate validity days
 function calculateValidityDays(startDate, endDate) {

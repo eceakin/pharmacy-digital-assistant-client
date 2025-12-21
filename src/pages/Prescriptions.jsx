@@ -1,6 +1,6 @@
 // src/pages/Prescriptions.jsx - With Debug Logs
 import React, { useState, useEffect } from 'react';
-import { FileText, Plus, Search, Edit2, Trash2, X } from 'lucide-react';
+import { FileText, Plus, Search, Edit2, Trash2, X, Send, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
 import { prescriptionApi } from '../api/prescriptionApi';
 
 const Prescriptions = () => {
@@ -11,6 +11,9 @@ const Prescriptions = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPrescription, setSelectedPrescription] = useState(null);
   const [filterStatus, setFilterStatus] = useState('ALL');
+
+const [checkingNotifications, setCheckingNotifications] = useState(false);
+  const [notificationResult, setNotificationResult] = useState(null);
 
   const [formData, setFormData] = useState({
     patientId: '',
@@ -51,6 +54,24 @@ const Prescriptions = () => {
       console.error("Veri yükleme hatası", error);
     } finally {
       setLoading(false);
+    }
+  };
+  const handleCheckNotifications = async () => {
+    setCheckingNotifications(true);
+    setNotificationResult(null);
+    try {
+      const result = await prescriptionApi.checkPrescriptionNotifications();
+      setNotificationResult(result);
+      
+      // 5 saniye sonra mesajı kaldır
+      setTimeout(() => setNotificationResult(null), 8000);
+      
+      // Listeyi yenile (durumlar değişmiş olabilir)
+      loadData();
+    } catch (error) {
+      setNotificationResult({ success: false, message: 'Hata oluştu' });
+    } finally {
+      setCheckingNotifications(false);
     }
   };
 
@@ -212,18 +233,89 @@ const Prescriptions = () => {
             Toplam {prescriptions.length} reçete
           </p>
         </div>
-        <button
-          onClick={openAddModal}
-          style={{
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            color: 'white', border: 'none', padding: '12px 24px',
-            borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
-            fontSize: '14px', fontWeight: '600', boxShadow: '0 4px 6px rgba(102, 126, 234, 0.25)'
-          }}
-        >
-          <Plus size={20} /> Yeni Reçete
-        </button>
+
+        {/* Buton Grubu */}
+        <div style={{ display: 'flex', gap: '12px' }}>
+          
+          {/* ✅ YENİ BUTON: Bildirim Kontrol */}
+          <button
+            onClick={handleCheckNotifications}
+            disabled={checkingNotifications}
+            style={{
+              background: checkingNotifications ? '#9CA3AF' : 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)', // Turuncu tonlarında
+              color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px',
+              cursor: checkingNotifications ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center',
+              gap: '8px', fontSize: '14px', fontWeight: '600', boxShadow: '0 4px 6px rgba(245, 158, 11, 0.25)'
+            }}
+          >
+            {checkingNotifications ? <RefreshCw size={18} className="animate-spin" /> : <Send size={18} />}
+            {checkingNotifications ? 'Kontrol Ediliyor...' : 'Bildirim Kontrol'}
+          </button>
+
+          {/* Yeni Reçete Butonu */}
+          <button
+            onClick={openAddModal}
+            style={{
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white', border: 'none', padding: '12px 24px',
+              borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
+              fontSize: '14px', fontWeight: '600', boxShadow: '0 4px 6px rgba(102, 126, 234, 0.25)'
+            }}
+          >
+            <Plus size={20} /> Yeni Reçete
+          </button>
+        </div>
       </div>
+
+      {/* ✅ YENİ: Notification Alert Box */}
+      {notificationResult && (
+        <div style={{
+          background: notificationResult.success ? '#ECFDF5' : '#FEF2F2',
+          border: `2px solid ${notificationResult.success ? '#10B981' : '#EF4444'}`,
+          borderRadius: '12px', padding: '16px 20px', marginBottom: '24px',
+          display: 'flex', alignItems: 'flex-start', gap: '12px',
+          animation: 'slideIn 0.3s ease-out'
+        }}>
+          {notificationResult.success ? (
+            <CheckCircle size={24} color="#10B981" style={{ marginTop: '2px' }} />
+          ) : (
+            <AlertCircle size={24} color="#EF4444" style={{ marginTop: '2px' }} />
+          )}
+          
+          <div style={{ flex: 1 }}>
+            <div style={{ 
+              fontWeight: '700', 
+              color: notificationResult.success ? '#065F46' : '#991B1B',
+              marginBottom: '4px'
+            }}>
+              {notificationResult.success ? 'İşlem Başarılı' : 'Hata Oluştu'}
+            </div>
+
+            <div style={{ 
+              fontSize: '14px', 
+              color: notificationResult.success ? '#047857' : '#B91C1C' 
+            }}>
+              {notificationResult.message}
+            </div>
+
+            {/* Detaylar */}
+            {notificationResult.success && notificationResult.data && (
+              <div style={{ 
+                marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.05)',
+                fontSize: '13px', color: '#4B5563', display: 'flex', flexDirection: 'column', gap: '4px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#F59E0B' }}></span>
+                  Gönderilen Reçete Bildirimi: <strong>{notificationResult.data.notificationsSent || 0}</strong> adet
+                </div>
+                 <div style={{ fontSize: '12px', color: '#9CA3AF' }}>
+                  (Kontrol edilen süre: {notificationResult.data.checkedDaysAhead} gün)
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Search and Filter */}
       <div style={{ 

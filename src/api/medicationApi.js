@@ -2,6 +2,8 @@
 const API_BASE_URL = 'http://localhost:8080/api';
 
 export const medicationApi = {
+
+
   // Tüm ilaçları getir
   getAllMedications: async () => {
     try {
@@ -14,6 +16,28 @@ export const medicationApi = {
       return [];
     }
   },
+  createMedication: async (medicationData) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/medications`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(medicationData),
+      });
+      const data = await response.json();
+      return {
+        success: response.ok,
+        data: data.data,
+        message: data.message || 'İşlem başarısız'
+      };
+    } catch (error) {
+      console.error('İlaç oluşturulurken hata:', error);
+      return {
+        success: false,
+        message: 'Sunucu hatası oluştu'
+      };
+    }},
 
   // İlaç özetlerini getir (daha hafif)
   getMedicationsSummary: async () => {
