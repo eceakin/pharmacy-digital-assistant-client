@@ -6,6 +6,7 @@ import Inventory from './pages/Inventory';
 import Notifications from './pages/Notifications';
 import Reports from './pages/Reports';
 import Prescriptions from './pages/Prescriptions';
+import Settings  from './pages/Settings';
 
 export default function App() {
   const [activePage, setActivePage] = useState('dashboard');
@@ -29,12 +30,15 @@ export default function App() {
         {activePage === 'notifications' && <Notifications />}
         {activePage === 'reports' && <Reports />}
         {activePage === 'prescriptions' && <Prescriptions />}
+        {activePage === 'settings' && <Settings />}
+        
         {/* Henüz yapılmayan sayfalar için yer tutucu */}
         {activePage !== 'dashboard' && activePage !== 'patients' 
         && activePage !== 'inventory' && 
         activePage !== 'notifications' &&
         activePage !== 'reports' &&
         activePage !== 'prescriptions' &&
+        activePage !== 'settings' &&
         (
           <div style={{ padding: '32px' }}>
             <h1 style={{ color: '#111827' }}>

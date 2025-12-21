@@ -1,17 +1,15 @@
-// src/pages/Settings.jsx
 import React, { useState, useEffect } from 'react';
 import { 
-  Settings as SettingsIcon, 
   Save, 
   RefreshCw, 
   Bell, 
-  Clock,
   AlertCircle,
   CheckCircle,
   Loader,
   Send
 } from 'lucide-react';
-import { settingsApi } from '../api/settingsApi';
+
+const API_BASE_URL = 'http://localhost:8080/api';
 
 const Settings = () => {
   const [loading, setLoading] = useState(true);
@@ -39,19 +37,21 @@ const Settings = () => {
   const loadSettings = async () => {
     setLoading(true);
     try {
-      const settings = await settingsApi.getSettings();
-      if (settings) {
+      const response = await fetch(`${API_BASE_URL}/settings`);
+      const data = await response.json();
+      
+      if (data.data) {
         setFormData({
-          medicationExpiryWarningDays: settings.medicationExpiryWarningDays || 3,
-          prescriptionExpiryWarningDays: settings.prescriptionExpiryWarningDays || 7,
-          stockExpiryWarningDays: settings.stockExpiryWarningDays || 90,
-          notificationTime: settings.notificationTime || '09:00',
-          emailNotificationsEnabled: settings.emailNotificationsEnabled ?? true,
-          smsNotificationsEnabled: settings.smsNotificationsEnabled ?? false,
-          pharmacyName: settings.pharmacyName || '',
-          pharmacyPhone: settings.pharmacyPhone || '',
-          pharmacyEmail: settings.pharmacyEmail || '',
-          pharmacyAddress: settings.pharmacyAddress || ''
+          medicationExpiryWarningDays: data.data.medicationExpiryWarningDays || 3,
+          prescriptionExpiryWarningDays: data.data.prescriptionExpiryWarningDays || 7,
+          stockExpiryWarningDays: data.data.stockExpiryWarningDays || 90,
+          notificationTime: data.data.notificationTime || '09:00',
+          emailNotificationsEnabled: data.data.emailNotificationsEnabled ?? true,
+          smsNotificationsEnabled: data.data.smsNotificationsEnabled ?? false,
+          pharmacyName: data.data.pharmacyName || '',
+          pharmacyPhone: data.data.pharmacyPhone || '',
+          pharmacyEmail: data.data.pharmacyEmail || '',
+          pharmacyAddress: data.data.pharmacyAddress || ''
         });
       }
     } catch (error) {
@@ -73,12 +73,21 @@ const Settings = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const result = await settingsApi.updateSettings(formData);
-      if (result.success) {
+      const response = await fetch(`${API_BASE_URL}/settings`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
         showMessage('success', 'Ayarlar başarıyla kaydedildi! ✅');
-        loadSettings(); // Refresh to get updated data
+        loadSettings();
       } else {
-        showMessage('error', result.message || 'Ayarlar kaydedilemedi');
+        showMessage('error', data.message || 'Ayarlar kaydedilemedi');
       }
     } catch (error) {
       console.error('Error saving settings:', error);
@@ -95,8 +104,13 @@ const Settings = () => {
 
     setSaving(true);
     try {
-      const result = await settingsApi.resetSettings();
-      if (result.success) {
+      const response = await fetch(`${API_BASE_URL}/settings/reset`, {
+        method: 'POST',
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
         showMessage('success', 'Ayarlar varsayılana sıfırlandı');
         loadSettings();
       } else {
@@ -113,16 +127,18 @@ const Settings = () => {
   const handleTestNotifications = async () => {
     setTesting(true);
     try {
-      const result = await settingsApi.testNotifications();
-      if (result.success && result.data) {
-        const total = result.data.totalNotifications || 0;
+      const response = await fetch(`${API_BASE_URL}/demo/check-all`);
+      const data = await response.json();
+      
+      if (response.ok && data.data) {
+        const total = data.data.totalNotifications || 0;
         if (total > 0) {
           showMessage('success', `✅ ${total} bildirim gönderildi!`);
         } else {
           showMessage('info', 'ℹ️ Gönderilecek bildirim bulunamadı');
         }
       } else {
-        showMessage('error', result.message || 'Test başarısız oldu');
+        showMessage('error', data.message || 'Test başarısız oldu');
       }
     } catch (error) {
       console.error('Error testing notifications:', error);
@@ -158,12 +174,9 @@ const Settings = () => {
     <div style={{ padding: '32px' }}>
       {/* Header */}
       <div style={{ marginBottom: '32px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-          <SettingsIcon size={32} color="#5B21B6" />
-          <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 'bold', color: '#111827' }}>
-            Sistem Ayarları
-          </h1>
-        </div>
+        <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 'bold', color: '#111827' }}>
+          ⚙️ Sistem Ayarları
+        </h1>
         <p style={{ color: '#6B7280', marginTop: '8px' }}>
           Bildirim ayarlarını ve eczane bilgilerini yönetin
         </p>
@@ -283,7 +296,7 @@ const Settings = () => {
                 fontSize: '12px', 
                 color: '#6B7280' 
               }}>
-                Reçete süres dolmadan kaç gün önce hatırlatma yapılsın
+                Reçete süresi dolmadan kaç gün önce hatırlatma yapılsın
               </p>
             </div>
 
@@ -437,7 +450,7 @@ const Settings = () => {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
             <div style={{ background: '#F3F4F6', padding: '10px', borderRadius: '8px' }}>
-              <SettingsIcon size={24} color="#5B21B6" />
+              <span style={{ fontSize: '24px' }}>🏥</span>
             </div>
             <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold', color: '#111827' }}>
               Eczane Bilgileri
@@ -665,18 +678,17 @@ const Settings = () => {
           )}
         </button>
       </div>
+
+      <style>
+        {`
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+        `}
+      </style>
     </div>
   );
 };
-
-// Add keyframe animation for spinner
-const style = document.createElement('style');
-style.innerHTML = `
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
-`;
-document.head.appendChild(style);
 
 export default Settings;
