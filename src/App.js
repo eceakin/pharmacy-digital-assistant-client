@@ -5,6 +5,7 @@ import Patients from './pages/Patients'; // 1. YENİ: Dosyayı içeri aktardık
 import Inventory from './pages/Inventory';
 import Notifications from './pages/Notifications';
 import Reports from './pages/Reports';
+import Prescriptions from './pages/Prescriptions';
 
 export default function App() {
   const [activePage, setActivePage] = useState('dashboard');
@@ -27,17 +28,16 @@ export default function App() {
         {activePage === 'inventory' && <Inventory />}
         {activePage === 'notifications' && <Notifications />}
         {activePage === 'reports' && <Reports />}
+        {activePage === 'prescriptions' && <Prescriptions />}
         {/* Henüz yapılmayan sayfalar için yer tutucu */}
         {activePage !== 'dashboard' && activePage !== 'patients' 
         && activePage !== 'inventory' && 
         activePage !== 'notifications' &&
         activePage !== 'reports' &&
+        activePage !== 'prescriptions' &&
         (
           <div style={{ padding: '32px' }}>
             <h1 style={{ color: '#111827' }}>
-              {activePage === 'prescriptions' && 'Reçete Yönetimi'}
-              {activePage === 'notifications' && 'Bildirimler'}
-              {activePage === 'reports' && 'Raporlar'}
               {activePage === 'settings' && 'Ayarlar'}
             </h1>
             <p style={{ color: '#6B7280' }}>Bu sayfa henüz hazırlanmadı...</p>
