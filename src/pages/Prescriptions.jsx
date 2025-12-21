@@ -1,6 +1,6 @@
-// src/pages/Prescriptions.jsx
+// src/pages/Prescriptions.jsx - With Debug Logs
 import React, { useState, useEffect } from 'react';
-import { FileText, Plus, Search, Edit2, Trash2, X, Filter } from 'lucide-react';
+import { FileText, Plus, Search, Edit2, Trash2, X } from 'lucide-react';
 import { prescriptionApi } from '../api/prescriptionApi';
 
 const Prescriptions = () => {
@@ -10,37 +10,40 @@ const Prescriptions = () => {
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPrescription, setSelectedPrescription] = useState(null);
-  
-  // Filtreleme durumu (ALL, ACTIVE, COMPLETED, EXPIRED)
   const [filterStatus, setFilterStatus] = useState('ALL');
 
   const [formData, setFormData] = useState({
     patientId: '',
     prescriptionNumber: '',
-    type: 'NORMAL', // Enum: NORMAL, RED, GREEN, PURPLE, ORANGE
+    type: 'E_PRESCRIPTION',
     startDate: '',
     endDate: '',
     doctorName: '',
     diagnosis: '',
-    medications: [] // Backend create isteğinde ilaç listesi bekliyor
+    notes: ''
   });
 
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
+    console.log('Component mounted, loading data...'); // DEBUG
     loadData();
   }, [filterStatus]);
 
   const loadData = async () => {
     setLoading(true);
+    console.log('Loading data with filter:', filterStatus); // DEBUG
+    
     try {
-      // Reçeteleri ve hastaları paralel çek
       const [prescriptionsData, patientsData] = await Promise.all([
         filterStatus === 'ALL' 
           ? prescriptionApi.getAllPrescriptions() 
           : prescriptionApi.getPrescriptionsByStatus(filterStatus),
         prescriptionApi.getAllPatients()
       ]);
+
+      console.log('Prescriptions loaded:', prescriptionsData); // DEBUG
+      console.log('Patients loaded:', patientsData); // DEBUG
 
       setPrescriptions(prescriptionsData);
       setPatients(patientsData);
@@ -56,9 +59,8 @@ const Prescriptions = () => {
       loadData();
       return;
     }
-    // Frontend tarafında basit arama (API'de search endpoint yoksa)
     const filtered = prescriptions.filter(p => 
-      p.prescriptionNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.prescriptionNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.patientName?.toLowerCase().includes(searchTerm.toLowerCase())
     );
     setPrescriptions(filtered);
@@ -76,38 +78,45 @@ const Prescriptions = () => {
     if (!formData.prescriptionNumber) newErrors.prescriptionNumber = 'Reçete no zorunludur';
     if (!formData.startDate) newErrors.startDate = 'Başlangıç tarihi zorunludur';
     if (!formData.endDate) newErrors.endDate = 'Bitiş tarihi zorunludur';
+    if (!formData.doctorName) newErrors.doctorName = 'Doktor adı zorunludur';
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async () => {
-    if (!validateForm()) return;
-
-    // Tarihleri backend formatına uygun hale getirelim (gerekirse)
-    const payload = {
-        ...formData,
-        // Backend entity ilişkisi için ID göndermeliyiz
-        patientId: formData.patientId 
-    };
+    console.log('Form submitted with data:', formData); // DEBUG
+    
+    if (!validateForm()) {
+      console.log('Validation failed:', errors); // DEBUG
+      return;
+    }
 
     const result = selectedPrescription
-      ? await prescriptionApi.updatePrescription(selectedPrescription.id, payload)
-      : await prescriptionApi.createPrescription(payload);
+      ? await prescriptionApi.updatePrescription(selectedPrescription.id, formData)
+      : await prescriptionApi.createPrescription(formData);
+
+    console.log('Submit result:', result); // DEBUG
 
     if (result.success) {
+      alert('İşlem başarılı!');
       setShowModal(false);
       resetForm();
       loadData();
     } else {
-      alert(result.message);
+      alert(result.message || 'Bir hata oluştu');
     }
   };
 
   const handleDelete = async (id) => {
     if (window.confirm('Bu reçeteyi silmek istediğinize emin misiniz?')) {
       const success = await prescriptionApi.deletePrescription(id);
-      if (success) loadData();
+      if (success) {
+        alert('Reçete silindi');
+        loadData();
+      } else {
+        alert('Silme işlemi başarısız');
+      }
     }
   };
 
@@ -118,16 +127,17 @@ const Prescriptions = () => {
   };
 
   const openEditModal = (prescription) => {
+    console.log('Editing prescription:', prescription); // DEBUG
     setSelectedPrescription(prescription);
     setFormData({
-      patientId: prescription.patientId, // Backend response içinde patientId dönmeli
+      patientId: prescription.patientId,
       prescriptionNumber: prescription.prescriptionNumber,
       type: prescription.type,
       startDate: prescription.startDate ? prescription.startDate.split('T')[0] : '',
       endDate: prescription.endDate ? prescription.endDate.split('T')[0] : '',
       doctorName: prescription.doctorName || '',
       diagnosis: prescription.diagnosis || '',
-      medications: [] // Düzenlemede ilaçları getirmek kompleks olabilir, şimdilik boş
+      notes: prescription.notes || ''
     });
     setShowModal(true);
   };
@@ -136,12 +146,12 @@ const Prescriptions = () => {
     setFormData({
       patientId: '',
       prescriptionNumber: '',
-      type: 'NORMAL',
+      type: 'E_PRESCRIPTION',
       startDate: '',
       endDate: '',
       doctorName: '',
       diagnosis: '',
-      medications: []
+      notes: ''
     });
     setErrors({});
   };
@@ -151,15 +161,15 @@ const Prescriptions = () => {
     return new Date(dateStr).toLocaleDateString('tr-TR');
   };
 
-  // Renkli Badge'ler
   const getStatusBadge = (status) => {
     const styles = {
       ACTIVE: { bg: '#ECFDF5', color: '#10B981', text: 'Aktif' },
-      COMPLETED: { bg: '#EFF6FF', color: '#3B82F6', text: 'Tamamlandı' },
+      USED: { bg: '#EFF6FF', color: '#3B82F6', text: 'Kullanıldı' },
       EXPIRED: { bg: '#FEF2F2', color: '#EF4444', text: 'Süresi Doldu' },
-      CANCELLED: { bg: '#F3F4F6', color: '#6B7280', text: 'İptal' }
+      CANCELLED: { bg: '#F3F4F6', color: '#6B7280', text: 'İptal' },
+      PENDING: { bg: '#FFF7ED', color: '#F59E0B', text: 'Beklemede' }
     };
-    const style = styles[status] || styles.CANCELLED;
+    const style = styles[status] || styles.PENDING;
     return (
       <span style={{
         background: style.bg, color: style.color,
@@ -173,18 +183,17 @@ const Prescriptions = () => {
 
   const getTypeBadge = (type) => {
     const styles = {
-      NORMAL: { bg: '#F3F4F6', color: '#374151', text: 'Normal' },
-      RED: { bg: '#FEF2F2', color: '#DC2626', text: 'Kırmızı' },
-      GREEN: { bg: '#ECFDF5', color: '#059669', text: 'Yeşil' },
-      PURPLE: { bg: '#F5F3FF', color: '#7C3AED', text: 'Mor' },
-      ORANGE: { bg: '#FFF7ED', color: '#EA580C', text: 'Turuncu' }
+      E_PRESCRIPTION: { bg: '#EFF6FF', color: '#3B82F6', text: 'E-Reçete' },
+      PAPER_PRESCRIPTION: { bg: '#F3F4F6', color: '#6B7280', text: 'Kağıt' },
+      REPORT: { bg: '#FFF7ED', color: '#F59E0B', text: 'Rapor' },
+      SPECIAL_PRESCRIPTION: { bg: '#FEF2F2', color: '#EF4444', text: 'Özel' }
     };
-    const style = styles[type] || styles.NORMAL;
+    const style = styles[type] || styles.E_PRESCRIPTION;
     return (
       <span style={{
         background: style.bg, color: style.color,
         padding: '2px 8px', borderRadius: '6px',
-        fontSize: '11px', fontWeight: '500', border: `1px solid ${style.color}30`
+        fontSize: '11px', fontWeight: '500'
       }}>
         {style.text}
       </span>
@@ -193,15 +202,15 @@ const Prescriptions = () => {
 
   return (
     <div style={{ padding: '32px' }}>
-      {/* Üst Başlık ve Buton */}
+      {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
         <div>
-            <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 'bold', color: '#111827' }}>
+          <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 'bold', color: '#111827' }}>
             Reçete Yönetimi
-            </h1>
-            <p style={{ margin: '4px 0 0 0', color: '#6B7280', fontSize: '14px' }}>
-                Reçete takibi, durumu ve detayları
-            </p>
+          </h1>
+          <p style={{ margin: '4px 0 0 0', color: '#6B7280', fontSize: '14px' }}>
+            Toplam {prescriptions.length} reçete
+          </p>
         </div>
         <button
           onClick={openAddModal}
@@ -216,7 +225,7 @@ const Prescriptions = () => {
         </button>
       </div>
 
-      {/* Arama ve Filtreleme */}
+      {/* Search and Filter */}
       <div style={{ 
         background: 'white', padding: '16px', borderRadius: '12px', 
         boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '24px',
@@ -229,6 +238,7 @@ const Prescriptions = () => {
             placeholder="Reçete no veya hasta adı ara..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
             style={{
               width: '100%', padding: '10px 10px 10px 40px',
               border: '2px solid #E5E7EB', borderRadius: '8px', outline: 'none'
@@ -237,36 +247,54 @@ const Prescriptions = () => {
         </div>
         
         <select 
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            style={{
-                padding: '10px', borderRadius: '8px', border: '2px solid #E5E7EB',
-                outline: 'none', color: '#374151', cursor: 'pointer'
-            }}
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          style={{
+            padding: '10px', borderRadius: '8px', border: '2px solid #E5E7EB',
+            outline: 'none', color: '#374151', cursor: 'pointer'
+          }}
         >
-            <option value="ALL">Tüm Durumlar</option>
-            <option value="ACTIVE">Aktif</option>
-            <option value="COMPLETED">Tamamlandı</option>
-            <option value="EXPIRED">Süresi Doldu</option>
+          <option value="ALL">Tüm Durumlar</option>
+          <option value="ACTIVE">Aktif</option>
+          <option value="USED">Kullanıldı</option>
+          <option value="EXPIRED">Süresi Doldu</option>
+          <option value="CANCELLED">İptal</option>
+          <option value="PENDING">Beklemede</option>
         </select>
         
         <button 
-            onClick={handleSearch}
-            style={{
-                background: '#667eea', color: 'white', border: 'none',
-                padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600'
-            }}
+          onClick={handleSearch}
+          style={{
+            background: '#667eea', color: 'white', border: 'none',
+            padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600'
+          }}
         >
-            Ara
+          Ara
         </button>
+        {searchTerm && (
+          <button 
+            onClick={() => {
+              setSearchTerm('');
+              loadData();
+            }}
+            style={{
+              background: '#6B7280', color: 'white', border: 'none',
+              padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600'
+            }}
+          >
+            Temizle
+          </button>
+        )}
       </div>
 
-      {/* Tablo */}
+      {/* Table */}
       <div style={{ background: 'white', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
         {loading ? (
-           <div style={{ padding: '48px', textAlign: 'center', color: '#6B7280' }}>Yükleniyor...</div>
+          <div style={{ padding: '48px', textAlign: 'center', color: '#6B7280' }}>Yükleniyor...</div>
         ) : prescriptions.length === 0 ? (
-           <div style={{ padding: '48px', textAlign: 'center', color: '#6B7280' }}>Kayıt bulunamadı.</div>
+          <div style={{ padding: '48px', textAlign: 'center', color: '#6B7280' }}>
+            Reçete bulunamadı. Yeni reçete eklemek için yukarıdaki butonu kullanın.
+          </div>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
@@ -285,24 +313,38 @@ const Prescriptions = () => {
                 <tr key={p.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
                   <td style={{ padding: '16px', fontSize: '14px', fontWeight: '600', color: '#111827' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <FileText size={16} color="#667eea" />
-                        {p.prescriptionNumber}
+                      <FileText size={16} color="#667eea" />
+                      {p.prescriptionNumber}
                     </div>
                   </td>
                   <td style={{ padding: '16px' }}>{getTypeBadge(p.type)}</td>
-                  <td style={{ padding: '16px', fontSize: '14px', color: '#374151' }}>{p.patientName}</td>
+                  <td style={{ padding: '16px', fontSize: '14px', color: '#374151' }}>{p.patientName || 'N/A'}</td>
                   <td style={{ padding: '16px', fontSize: '14px', color: '#374151' }}>{p.doctorName || '-'}</td>
                   <td style={{ padding: '16px', fontSize: '13px', color: '#6B7280' }}>
                     <div>{formatDate(p.startDate)}</div>
-                    <div style={{ fontSize: '11px' }}>bitiş: {formatDate(p.endDate)}</div>
+                    <div style={{ fontSize: '11px' }}>→ {formatDate(p.endDate)}</div>
                   </td>
                   <td style={{ padding: '16px' }}>{getStatusBadge(p.status)}</td>
                   <td style={{ padding: '16px', textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                      <button onClick={() => openEditModal(p)} style={{ background: '#F3F4F6', border: 'none', padding: '6px', borderRadius: '6px', cursor: 'pointer', color: '#4B5563' }} title="Düzenle">
+                      <button 
+                        onClick={() => openEditModal(p)} 
+                        style={{ 
+                          background: '#667eea20', color: '#667eea', border: 'none', 
+                          padding: '6px', borderRadius: '6px', cursor: 'pointer' 
+                        }} 
+                        title="Düzenle"
+                      >
                         <Edit2 size={16} />
                       </button>
-                      <button onClick={() => handleDelete(p.id)} style={{ background: '#FEE2E2', border: 'none', padding: '6px', borderRadius: '6px', cursor: 'pointer', color: '#EF4444' }} title="Sil">
+                      <button 
+                        onClick={() => handleDelete(p.id)} 
+                        style={{ 
+                          background: '#EF444420', color: '#EF4444', border: 'none', 
+                          padding: '6px', borderRadius: '6px', cursor: 'pointer' 
+                        }} 
+                        title="Sil"
+                      >
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -318,139 +360,203 @@ const Prescriptions = () => {
       {showModal && (
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+          background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px'
         }}>
           <div style={{
             background: 'white', borderRadius: '12px', width: '100%', maxWidth: '600px',
-            maxHeight: '90vh', overflowY: 'auto', padding: '24px', position: 'relative'
+            maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)'
           }}>
-            <button 
-                onClick={() => setShowModal(false)} 
-                style={{ position: 'absolute', top: '20px', right: '20px', background: 'none', border: 'none', cursor: 'pointer' }}
-            >
-                <X size={24} color="#6B7280" />
-            </button>
-            
-            <h2 style={{ margin: '0 0 24px 0', fontSize: '20px', fontWeight: 'bold' }}>
-              {selectedPrescription ? 'Reçeteyi Düzenle' : 'Yeni Reçete Oluştur'}
-            </h2>
+            <div style={{
+              padding: '24px', borderBottom: '1px solid #E5E7EB',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+            }}>
+              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold' }}>
+                {selectedPrescription ? 'Reçeteyi Düzenle' : 'Yeni Reçete Oluştur'}
+              </h2>
+              <button 
+                onClick={() => { setShowModal(false); resetForm(); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: '#6B7280' }}
+              >
+                <X size={24} />
+              </button>
+            </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ padding: '24px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {/* Hasta Seçimi */}
                 <div>
-                    <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '600' }}>Hasta <span style={{color:'red'}}>*</span></label>
-                    <select
-                        name="patientId"
-                        value={formData.patientId}
-                        onChange={handleInputChange}
-                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '2px solid #E5E7EB' }}
-                        disabled={!!selectedPrescription} // Düzenlerken hasta değişmesin
-                    >
-                        <option value="">Hasta Seçiniz</option>
-                        {patients.map(pat => (
-                            <option key={pat.id} value={pat.id}>{pat.fullName}</option>
-                        ))}
-                    </select>
-                    {errors.patientId && <span style={{ color: 'red', fontSize: '12px' }}>{errors.patientId}</span>}
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '600' }}>
+                    Hasta <span style={{color:'red'}}>*</span>
+                  </label>
+                  <select
+                    name="patientId"
+                    value={formData.patientId}
+                    onChange={handleInputChange}
+                    disabled={!!selectedPrescription}
+                    style={{ 
+                      width: '100%', padding: '10px', borderRadius: '8px', 
+                      border: `2px solid ${errors.patientId ? '#EF4444' : '#E5E7EB'}`,
+                      outline: 'none'
+                    }}
+                  >
+                    <option value="">Hasta Seçiniz</option>
+                    {patients.map(pat => (
+                      <option key={pat.id} value={pat.id}>{pat.fullName}</option>
+                    ))}
+                  </select>
+                  {errors.patientId && <span style={{ color: 'red', fontSize: '12px' }}>{errors.patientId}</span>}
                 </div>
 
-                {/* Reçete No ve Tip (Yan Yana) */}
-                <div style={{ display: 'flex', gap: '16px' }}>
-                    <div style={{ flex: 1 }}>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '600' }}>Reçete No <span style={{color:'red'}}>*</span></label>
-                        <input
-                            type="text"
-                            name="prescriptionNumber"
-                            value={formData.prescriptionNumber}
-                            onChange={handleInputChange}
-                            placeholder="Örn: REC-2024-001"
-                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '2px solid #E5E7EB' }}
-                        />
-                         {errors.prescriptionNumber && <span style={{ color: 'red', fontSize: '12px' }}>{errors.prescriptionNumber}</span>}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '600' }}>Reçete Tipi</label>
-                        <select
-                            name="type"
-                            value={formData.type}
-                            onChange={handleInputChange}
-                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '2px solid #E5E7EB' }}
-                        >
-                            <option value="NORMAL">Normal</option>
-                            <option value="RED">Kırmızı</option>
-                            <option value="GREEN">Yeşil</option>
-                            <option value="PURPLE">Mor</option>
-                            <option value="ORANGE">Turuncu</option>
-                        </select>
-                    </div>
-                </div>
-
-                {/* Tarihler (Yan Yana) */}
-                <div style={{ display: 'flex', gap: '16px' }}>
-                    <div style={{ flex: 1 }}>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '600' }}>Başlangıç Tarihi <span style={{color:'red'}}>*</span></label>
-                        <input
-                            type="date"
-                            name="startDate"
-                            value={formData.startDate}
-                            onChange={handleInputChange}
-                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '2px solid #E5E7EB' }}
-                        />
-                         {errors.startDate && <span style={{ color: 'red', fontSize: '12px' }}>{errors.startDate}</span>}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '600' }}>Bitiş Tarihi <span style={{color:'red'}}>*</span></label>
-                        <input
-                            type="date"
-                            name="endDate"
-                            value={formData.endDate}
-                            onChange={handleInputChange}
-                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '2px solid #E5E7EB' }}
-                        />
-                         {errors.endDate && <span style={{ color: 'red', fontSize: '12px' }}>{errors.endDate}</span>}
-                    </div>
-                </div>
-
-                {/* Doktor ve Teşhis */}
-                <div>
-                    <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '600' }}>Doktor Adı</label>
+                {/* Reçete No ve Tip */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '600' }}>
+                      Reçete No <span style={{color:'red'}}>*</span>
+                    </label>
                     <input
-                        type="text"
-                        name="doctorName"
-                        value={formData.doctorName}
-                        onChange={handleInputChange}
-                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '2px solid #E5E7EB' }}
+                      type="text"
+                      name="prescriptionNumber"
+                      value={formData.prescriptionNumber}
+                      onChange={handleInputChange}
+                      placeholder="RX-001"
+                      style={{ 
+                        width: '100%', padding: '10px', borderRadius: '8px', 
+                        border: `2px solid ${errors.prescriptionNumber ? '#EF4444' : '#E5E7EB'}`,
+                        outline: 'none'
+                      }}
                     />
+                    {errors.prescriptionNumber && <span style={{ color: 'red', fontSize: '12px' }}>{errors.prescriptionNumber}</span>}
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '600' }}>Tip</label>
+                    <select
+                      name="type"
+                      value={formData.type}
+                      onChange={handleInputChange}
+                      style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '2px solid #E5E7EB', outline: 'none' }}
+                    >
+                      <option value="E_PRESCRIPTION">E-Reçete</option>
+                      <option value="PAPER_PRESCRIPTION">Kağıt Reçete</option>
+                      <option value="REPORT">Rapor</option>
+                      <option value="SPECIAL_PRESCRIPTION">Özel Reçete</option>
+                    </select>
+                  </div>
                 </div>
+
+                {/* Tarihler */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '600' }}>
+                      Başlangıç <span style={{color:'red'}}>*</span>
+                    </label>
+                    <input
+                      type="date"
+                      name="startDate"
+                      value={formData.startDate}
+                      onChange={handleInputChange}
+                      style={{ 
+                        width: '100%', padding: '10px', borderRadius: '8px', 
+                        border: `2px solid ${errors.startDate ? '#EF4444' : '#E5E7EB'}`,
+                        outline: 'none'
+                      }}
+                    />
+                    {errors.startDate && <span style={{ color: 'red', fontSize: '12px' }}>{errors.startDate}</span>}
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '600' }}>
+                      Bitiş <span style={{color:'red'}}>*</span>
+                    </label>
+                    <input
+                      type="date"
+                      name="endDate"
+                      value={formData.endDate}
+                      onChange={handleInputChange}
+                      style={{ 
+                        width: '100%', padding: '10px', borderRadius: '8px', 
+                        border: `2px solid ${errors.endDate ? '#EF4444' : '#E5E7EB'}`,
+                        outline: 'none'
+                      }}
+                    />
+                    {errors.endDate && <span style={{ color: 'red', fontSize: '12px' }}>{errors.endDate}</span>}
+                  </div>
+                </div>
+
+                {/* Doktor */}
                 <div>
-                    <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '600' }}>Teşhis / Notlar</label>
-                    <textarea
-                        name="diagnosis"
-                        value={formData.diagnosis}
-                        onChange={handleInputChange}
-                        rows={3}
-                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '2px solid #E5E7EB' }}
-                    />
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '600' }}>
+                    Doktor Adı <span style={{color:'red'}}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="doctorName"
+                    value={formData.doctorName}
+                    onChange={handleInputChange}
+                    placeholder="Dr. Ahmet Yılmaz"
+                    style={{ 
+                      width: '100%', padding: '10px', borderRadius: '8px', 
+                      border: `2px solid ${errors.doctorName ? '#EF4444' : '#E5E7EB'}`,
+                      outline: 'none'
+                    }}
+                  />
+                  {errors.doctorName && <span style={{ color: 'red', fontSize: '12px' }}>{errors.doctorName}</span>}
                 </div>
 
-                {/* Not: Backend'de ilaç listesi de bekleniyor (nested list). 
-                    Şimdilik basitlik adına burada sadece reçete ana bilgilerini yönetiyoruz. 
-                    İlaç ekleme kısmı reçete detay sayfasında veya ayrı bir adımda yapılabilir. */}
-
-                <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
-                    <button 
-                        onClick={() => setShowModal(false)}
-                        style={{ flex: 1, padding: '12px', background: '#F3F4F6', color: '#374151', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}
-                    >
-                        İptal
-                    </button>
-                    <button 
-                        onClick={handleSubmit}
-                        style={{ flex: 1, padding: '12px', background: '#667eea', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}
-                    >
-                        {selectedPrescription ? 'Güncelle' : 'Kaydet'}
-                    </button>
+                {/* Teşhis */}
+                <div>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '600' }}>Teşhis</label>
+                  <textarea
+                    name="diagnosis"
+                    value={formData.diagnosis}
+                    onChange={handleInputChange}
+                    rows={2}
+                    placeholder="Tanı bilgisi..."
+                    style={{ 
+                      width: '100%', padding: '10px', borderRadius: '8px', 
+                      border: '2px solid #E5E7EB', outline: 'none', resize: 'vertical',
+                      fontFamily: 'inherit'
+                    }}
+                  />
                 </div>
+
+                {/* Notlar */}
+                <div>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '600' }}>Notlar</label>
+                  <textarea
+                    name="notes"
+                    value={formData.notes}
+                    onChange={handleInputChange}
+                    rows={2}
+                    placeholder="Ek bilgiler..."
+                    style={{ 
+                      width: '100%', padding: '10px', borderRadius: '8px', 
+                      border: '2px solid #E5E7EB', outline: 'none', resize: 'vertical',
+                      fontFamily: 'inherit'
+                    }}
+                  />
+                </div>
+
+                {/* Buttons */}
+                <div style={{ display: 'flex', gap: '12px', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #E5E7EB' }}>
+                  <button 
+                    onClick={() => { setShowModal(false); resetForm(); }}
+                    style={{ 
+                      flex: 1, padding: '12px', background: '#F3F4F6', color: '#374151', 
+                      border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' 
+                    }}
+                  >
+                    İptal
+                  </button>
+                  <button 
+                    onClick={handleSubmit}
+                    style={{ 
+                      flex: 1, padding: '12px', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
+                      color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' 
+                    }}
+                  >
+                    {selectedPrescription ? 'Güncelle' : 'Kaydet'}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
