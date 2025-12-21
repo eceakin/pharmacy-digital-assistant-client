@@ -40,6 +40,8 @@ export default function App() {
         activePage !== 'reports' &&
         activePage !== 'prescriptions' &&
         activePage !== 'settings' &&
+        activePage !== 'medications' &&
+      
         (
           <div style={{ padding: '32px' }}>
             <h1 style={{ color: '#111827' }}>
