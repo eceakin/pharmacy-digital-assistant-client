@@ -1,13 +1,25 @@
 // src/api/prescriptionApi.js
 const API_BASE_URL = 'http://localhost:8080/api';
 
+// Helper function to calculate validity days
+function calculateValidityDays(startDate, endDate) {
+  if (!startDate || !endDate) return 30; // Default 30 days
+  
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const diffTime = Math.abs(end - start);
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  return diffDays;
+}
+
 export const prescriptionApi = {
   // Tüm reçeteleri getir
   getAllPrescriptions: async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/prescriptions`);
       const data = await response.json();
-      console.log('All Prescriptions Response:', data); // DEBUG
+      console.log('All Prescriptions Response:', data);
       return data.data || [];
     } catch (error) {
       console.error('Reçeteler yüklenirken hata:', error);
@@ -30,12 +42,11 @@ export const prescriptionApi = {
   // Yeni reçete oluştur
   createPrescription: async (prescriptionData) => {
     try {
-      // Backend'in CreatePrescriptionRequest formatına uygun payload oluştur
       const payload = {
         patientId: prescriptionData.patientId,
         prescriptionNumber: prescriptionData.prescriptionNumber,
         type: prescriptionData.type || 'E_PRESCRIPTION',
-        issueDate: prescriptionData.startDate, // issueDate gerekli
+        issueDate: prescriptionData.startDate,
         startDate: prescriptionData.startDate,
         endDate: prescriptionData.endDate,
         validityDays: calculateValidityDays(prescriptionData.startDate, prescriptionData.endDate),
@@ -47,7 +58,7 @@ export const prescriptionApi = {
         refillCount: prescriptionData.refillCount || 0
       };
 
-      console.log('Creating prescription with payload:', payload); // DEBUG
+      console.log('Creating prescription with payload:', payload);
 
       const response = await fetch(`${API_BASE_URL}/prescriptions`, {
         method: 'POST',
@@ -58,7 +69,7 @@ export const prescriptionApi = {
       });
 
       const data = await response.json();
-      console.log('Create prescription response:', data); // DEBUG
+      console.log('Create prescription response:', data);
 
       if (response.ok) {
         return { success: true, data: data.data, message: data.message };
@@ -88,7 +99,7 @@ export const prescriptionApi = {
         refillCount: prescriptionData.refillCount || 0
       };
 
-      console.log('Updating prescription with payload:', payload); // DEBUG
+      console.log('Updating prescription with payload:', payload);
 
       const response = await fetch(`${API_BASE_URL}/prescriptions/${id}`, {
         method: 'PUT',
@@ -129,7 +140,7 @@ export const prescriptionApi = {
     try {
       const response = await fetch(`${API_BASE_URL}/prescriptions/status/${status}`);
       const data = await response.json();
-      console.log(`Prescriptions by status ${status}:`, data); // DEBUG
+      console.log(`Prescriptions by status ${status}:`, data);
       return data.data || [];
     } catch (error) {
       console.error('Filtreleme hatası:', error);
@@ -147,9 +158,10 @@ export const prescriptionApi = {
       console.error('Hastalar yüklenirken hata:', error);
       return [];
     }
-  }
-};
-checkPrescriptionNotifications: async () => {
+  },
+
+  // ✅ DÜZELTME BURADA: Bu metod artık 'prescriptionApi' objesinin İÇİNDE
+  checkPrescriptionNotifications: async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/demo/check-prescriptions`);
       const data = await response.json();
@@ -167,15 +179,4 @@ checkPrescriptionNotifications: async () => {
       };
     }
   }
-
-// Helper function to calculate validity days
-function calculateValidityDays(startDate, endDate) {
-  if (!startDate || !endDate) return 30; // Default 30 days
-  
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  const diffTime = Math.abs(end - start);
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
-  return diffDays;
-}
+}; // ✅ Obje burada kapanıyor
