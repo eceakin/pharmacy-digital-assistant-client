@@ -1,10 +1,11 @@
 import React from 'react';
-import { Home, Users, Package, FileText, Bell, BarChart3, Settings } from 'lucide-react';
+import { Home, Users, Package, FileText, Bell, BarChart3, Settings, Pill } from 'lucide-react'; // ✅ Pill eklendi
 
 const Sidebar = ({ activePage, setActivePage }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     { id: 'patients', label: 'Hastalar', icon: Users },
+    { id: 'medications', label: 'İlaç Takipleri', icon: Pill }, // ✅ YENİ MENÜ
     { id: 'inventory', label: 'Envanter', icon: Package },
     { id: 'prescriptions', label: 'Reçeteler', icon: FileText },
     { id: 'notifications', label: 'Bildirimler', icon: Bell },
